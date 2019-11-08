@@ -4,7 +4,7 @@ const mongodb = require('mongodb')
 const moment = require('moment')
 const ObjectId = require('mongodb').ObjectId
 const path = require('path')
-const duckytils = require(path.join(process.cwd(), 'libraries/node_libraries/duckytils'))
+const duckytils = require('duckytils')
 const lodash_string = require('lodash/string')
 const crypto = require('crypto')
 
