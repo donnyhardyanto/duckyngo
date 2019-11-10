@@ -3,7 +3,6 @@
 const mongodb = require('mongodb')
 const moment = require('moment')
 const ObjectId = require('mongodb').ObjectId
-const path = require('path')
 const duckytils = require('duckytils')
 const lodash_string = require('lodash/string')
 const crypto = require('crypto')
@@ -50,10 +49,10 @@ class Documents {
     d._lastchanged_timestamp = d._add_timestamp
     if (this.sequenceFields) {
       for (let i = 0; i < this.sequenceFields.length; i++) {
-        let f = this.sequenceFields[i].field
+        let f = this.sequenceFields[i]["field"]
         let c = await duckyngo.findOneAndUpsert(this.url, '_counters', { _id: this.documentName + f }, { _id: 1 }, { '$inc': { 'value': 1 } }, null)
         let c_as_string_length = c.value.toString().length
-        let digits_as_number = parseInt(this.sequenceFields[i].digits)
+        let digits_as_number = parseInt(this.sequenceFields[i]["digits"])
         let n = digits_as_number - c_as_string_length
         let s = lodash_string.repeat('0', n)
         d[f] = this.sequenceFields[i].prefix + s + c.value
@@ -71,6 +70,7 @@ class Documents {
   async findOneAndUpdate (whereKeyValues, orderKeyValues, updateKeyValues, projection) {
     return duckyngo.findOneAndUpdate(this.url, this.documentName, whereKeyValues, orderKeyValues, updateKeyValues, projection)
   }
+
   async updateManys (whereKeyValues, updateKeyValues, projection) {
     return duckyngo.updateMany(this.url, this.documentName, whereKeyValues, updateKeyValues, projection)
   }
@@ -148,13 +148,17 @@ class Documents {
     return l[0]
   }
 
-  async list (whereKeyValues, orderKeyValues, projection) { return duckyngo.list(this.url, this.documentName, whereKeyValues, orderKeyValues, projection) }
+  async list (whereKeyValues, orderKeyValues, projection) {
+    return duckyngo.list(this.url, this.documentName, whereKeyValues, orderKeyValues, projection)
+  }
 
   async filter (whereKeyValues, orderKeyValues, limit, offset, projection) {
     return duckyngo.filter(this.url, this.documentName, whereKeyValues, orderKeyValues, limit, offset, projection)
   }
 
-  async list_raw (whereKeyValues, orderKeyValues, limit, projection) { return duckyngo.list(this.url, this.documentName, whereKeyValues, orderKeyValues, limit, projection) }
+  async list_raw (whereKeyValues, orderKeyValues, limit, projection) {
+    return duckyngo.list(this.url, this.documentName, whereKeyValues, orderKeyValues, limit, projection)
+  }
 
   async filter_raw (whereKeyValues, orderKeyValues, limit, offset, projection) {
     return duckyngo.filter(this.url, this.documentName, whereKeyValues, orderKeyValues, limit, offset, projection)
@@ -341,16 +345,16 @@ class Users extends DocumentsWithStatesStandard {
     return r
   }
 
-  async addArray(data, hash_algorithm_name) {
-    data.forEach(async (item, index) => {
-      login_password = item.login_password
-      delete item.login_password
-      const hash = crypto.createHash(hash_algorithm_name)
-      hash.update(login_password)
+  async add_all (documents, hash_algorithm_name = 'sha256') {
+    const hash = crypto.createHash(hash_algorithm_name)
+    for (let i = 0; i < documents.length; i++) {
+      hash.update(documents[i]['login_password'])
       let password_hash = hash.digest('base64')
-      await this.add(item, password_hash)
-    })
+      delete documents[i]['login_password']
+      await this.add(documents[i], password_hash)
+    }
   }
+
   async viewPassword (user_id) {
     if ((typeof user_id) === 'object') user_id = user_id.toString()
     let r = {}
@@ -386,7 +390,10 @@ const duckyngo = {
   connect: async function (url) {
     let c = duckyngo.connections[url.hash]
     if (!c) {
-      return mongodb.MongoClient.connect(url.auth, { useNewUrlParser: true, useUnifiedTopology: true }).then((client) => {
+      return mongodb.MongoClient.connect(url.auth, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+      }).then((client) => {
         duckyngo.connections[url.hash] = client
         return client
       })
@@ -466,21 +473,27 @@ const duckyngo = {
       return collection.findAndModify(whereKeyValues, orderKeyValues, setKeyValues, {
         fields: projection,
         new: true
-      }).then((r) => { return r.value })
+      }).then((r) => {
+        return r.value
+      })
     })
   },
   updateMany: async function (url, collectionName, whereKeyValues, setKeyValues, options) {
     return duckyngo.connect(url).then((client) => {
       const db = client.db(url.db)
       const collection = db.collection(collectionName)
-      return collection.updateMany(whereKeyValues, setKeyValues, options).then((r) => { return r.value })
+      return collection.updateMany(whereKeyValues, setKeyValues, options).then((r) => {
+        return r.value
+      })
     })
   },
   createIndex: async function (url, collectionName, fieldOrSpec, options) {
     return duckyngo.connect(url).then((client) => {
       const db = client.db(url.db)
       const collection = db.collection(collectionName)
-      return collection.createIndex(fieldOrSpec, options).then((r) => { return r.value })
+      return collection.createIndex(fieldOrSpec, options).then((r) => {
+        return r.value
+      })
     })
   },
   deleteOne: async function (url, collectionName, whereKeyValues, orderKeyValues, projection) {
@@ -490,7 +503,9 @@ const duckyngo = {
       return collection.findOneAndDelete(whereKeyValues, {
         projection,
         sort: orderKeyValues
-      }).then((r) => { return r.value })
+      }).then((r) => {
+        return r.value
+      })
     })
   },
   list: async function (url, collectionName, whereKeyValues, orderKeyValues, limit, projection) {
