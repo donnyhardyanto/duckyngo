@@ -346,8 +346,8 @@ class Users extends DocumentsWithStatesStandard {
   }
 
   async add_all (documents, hash_algorithm_name = 'sha256') {
-    const hash = crypto.createHash(hash_algorithm_name)
     for (let i = 0; i < documents.length; i++) {
+      const hash = crypto.createHash(hash_algorithm_name)
       hash.update(documents[i]['login_password'])
       let password_hash = hash.digest('base64')
       delete documents[i]['login_password']
