@@ -2,6 +2,8 @@
   <dictionary name="donny">
     <words>
       <w>duckytils</w>
+      <w>nameid</w>
+      <w>upsert</w>
     </words>
   </dictionary>
 </component>

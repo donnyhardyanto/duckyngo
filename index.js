@@ -8,13 +8,14 @@ const lodash_string = require('lodash/string')
 const crypto = require('crypto')
 
 class Documents {
-  constructor (url, documentName, expireAtFields, error_object_name, sequenceFields) {
+  constructor (url, documentName, expireAtFields, error_object_name, sequenceFields, uniqueFields) {
     this.url = url
     this.documentName = documentName
     this.expireAtFields = expireAtFields
     this.error_object_name = error_object_name
     this.onChanged = null
     this.sequenceFields = sequenceFields
+    this.uniqueFields = uniqueFields
   }
 
   async createCollection () {
@@ -44,15 +45,26 @@ class Documents {
   }
 
   async add (document) {
+    if (this.uniqueFields) {
+      for (let i = 0; i++; i < this.uniqueFields.length) {
+        let f = this.uniqueFields[i]
+        if (document[f] !== undefined) {
+          let p = {}
+          p[f] = document[f]
+          let existing_data = await this.findOne(p)
+          if (existing_data) throw new Error('FAIL_UNIQUE_FIELD_VALUE_EXISTS')
+        }
+      }
+    }
     let d = Object.assign({}, document)
     d._add_timestamp = new Date(moment().toISOString(true))
     d._lastchanged_timestamp = d._add_timestamp
     if (this.sequenceFields) {
       for (let i = 0; i < this.sequenceFields.length; i++) {
-        let f = this.sequenceFields[i]["field"]
+        let f = this.sequenceFields[i]['field']
         let c = await duckyngo.findOneAndUpsert(this.url, '_counters', { _id: this.documentName + f }, { _id: 1 }, { '$inc': { 'value': 1 } }, null)
         let c_as_string_length = c.value.toString().length
-        let digits_as_number = parseInt(this.sequenceFields[i]["digits"])
+        let digits_as_number = parseInt(this.sequenceFields[i]['digits'])
         let n = digits_as_number - c_as_string_length
         let s = lodash_string.repeat('0', n)
         d[f] = this.sequenceFields[i].prefix + s + c.value
@@ -61,7 +73,7 @@ class Documents {
     return duckyngo.insertOne(this.url, this.documentName, d)
   }
 
-  async add_all (documents) {
+  async addAll (documents) {
     for (let i = 0; i < documents.length; i++) {
       await this.add(documents[i])
     }
@@ -71,7 +83,7 @@ class Documents {
     return duckyngo.findOneAndUpdate(this.url, this.documentName, whereKeyValues, orderKeyValues, updateKeyValues, projection)
   }
 
-  async updateManys (whereKeyValues, updateKeyValues, projection) {
+  async updateMany (whereKeyValues, updateKeyValues, projection) {
     return duckyngo.updateMany(this.url, this.documentName, whereKeyValues, updateKeyValues, projection)
   }
 
@@ -127,7 +139,7 @@ class Documents {
     return duckyngo.findOne(this.url, this.documentName, { _id: _id }, projection)
   }
 
-  async view_must_exist_fatal (_id) {
+  async viewMustExistFatal (_id) {
     let o = await this.view(_id)
     let s = this.documentName
     if (this.error_object_name) s = this.error_object_name
@@ -135,15 +147,15 @@ class Documents {
     return o
   }
 
-  async find_one (whereKeyValues, orderKeyValues, projection) {
+  async findOne (whereKeyValues, orderKeyValues, projection) {
     let l = await this.filter(whereKeyValues, orderKeyValues, 1, 0, projection)
     if (l.length === 0) return null
     return l[0]
   }
 
   // noinspection JSUnusedGlobalSymbols
-  async find_one_raw (whereKeyValues, orderKeyValues, projection) {
-    let l = await this.filter_raw(whereKeyValues, orderKeyValues, 1, 0, projection)
+  async findOneRaw (whereKeyValues, orderKeyValues, projection) {
+    let l = await this.filterRaw(whereKeyValues, orderKeyValues, 1, 0, projection)
     if (l.length === 0) return null
     return l[0]
   }
@@ -156,11 +168,11 @@ class Documents {
     return duckyngo.filter(this.url, this.documentName, whereKeyValues, orderKeyValues, limit, offset, projection)
   }
 
-  async list_raw (whereKeyValues, orderKeyValues, limit, projection) {
+  async listRaw (whereKeyValues, orderKeyValues, limit, projection) {
     return duckyngo.list(this.url, this.documentName, whereKeyValues, orderKeyValues, limit, projection)
   }
 
-  async filter_raw (whereKeyValues, orderKeyValues, limit, offset, projection) {
+  async filterRaw (whereKeyValues, orderKeyValues, limit, offset, projection) {
     return duckyngo.filter(this.url, this.documentName, whereKeyValues, orderKeyValues, limit, offset, projection)
   }
 
@@ -168,20 +180,20 @@ class Documents {
     return duckyngo.count(this.url, this.documentName, whereKeyValues)
   }
 
-  async sync_raw (whereKeyValues, client_lastchanged_timestamp, limit, projection) {
+  async syncRaw (whereKeyValues, client_lastchanged_timestamp, limit, projection) {
     let p = Object.assign({
       _lastchanged_timestamp: {
         $gte: client_lastchanged_timestamp
       }
     }, whereKeyValues)
-    return this.list_raw(p, { _lastchanged_timestamp: 1 }, limit, projection)
+    return this.listRaw(p, { _lastchanged_timestamp: 1 }, limit, projection)
   }
 
   // noinspection JSUnusedGlobalSymbols
   async sync (whereKeyValues, client_lastchanged_timestamp, limit, projection) {
     let t = moment(client_lastchanged_timestamp)
     t.subtract(1, 'seconds')
-    return this.sync_raw(whereKeyValues, new Date(t.toISOString()), limit, projection)
+    return this.syncRaw(whereKeyValues, new Date(t.toISOString()), limit, projection)
   }
 
   async aggregate (pipeline, options, orderKeyValues, limit, offset) {
@@ -190,8 +202,8 @@ class Documents {
 }
 
 class DocumentsWithExpireAt extends Documents {
-  constructor (url, documentName, defaultExpireAfterSeconds) {
-    super(url, documentName, ['expireAt'])
+  constructor (url, documentName, defaultExpireAfterSeconds, error_object_name, sequenceFields, uniqueFields) {
+    super(url, documentName, ['expireAt'], error_object_name, sequenceFields, uniqueFields)
     if (!defaultExpireAfterSeconds) defaultExpireAfterSeconds = 60 * 60 * 24 * 365 * 10
     this.defaultExpireAfterSeconds = defaultExpireAfterSeconds
   }
@@ -211,7 +223,7 @@ class AsyncJob extends Documents {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  async register_job (data_tag, name, parameters, progress) {
+  async jobRegister (data_tag, name, parameters, progress) {
     let d = { name, parameters, progress: [{ text: progress }] }
     d = await super.add(d)
     duckytils.log(data_tag, 'info', 'Async job added: <' + d._id + '>:' + name + ': ' + progress, parameters)
@@ -219,7 +231,7 @@ class AsyncJob extends Documents {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  async progress (data_tag, job_id, progress_text, progress_data) {
+  async jobProgress (data_tag, job_id, progress_text, progress_data) {
     let d = await this.view(job_id)
     d.progress.push({ text: progress_text, data: progress_data })
     await this.updateSet(job_id, d)
@@ -227,7 +239,7 @@ class AsyncJob extends Documents {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  async done (data_tag, job_id, result_data) {
+  async jobDone (data_tag, job_id, result_data) {
     let d = await this.view(job_id)
     d.progress.push({ text: 'DONE', data: result_data })
     await this.delete(job_id)
@@ -243,12 +255,12 @@ class AsyncJob extends Documents {
     duckytils.log(data_tag, 'info', 'Async job ERROR: <' + d._id + '>:' + d.name + ': ' + error.message, error)
   }
 
-  async register_job_promise (data_tag, p, name, parameters) {
+  async jobRegisterAsPromise (data_tag, p, name, parameters) {
     let self = this
-    let job_id = await this.register_job(data_tag, name, parameters, 'START')
+    let job_id = await this.jobRegister(data_tag, name, parameters, 'START')
     return p.then((r) => {
       // noinspection JSIgnoredPromiseFromCall
-      self.done(data_tag, job_id, r)
+      self.jobDone(data_tag, job_id, r)
     }).catch((e) => {
       // noinspection JSIgnoredPromiseFromCall
       self.error(data_tag, job_id, e)
@@ -257,8 +269,8 @@ class AsyncJob extends Documents {
 }
 
 class DocumentsWithStates extends Documents {
-  constructor (url, documentName, states, default_state, sequenceFields) {
-    super(url, documentName, null, null, sequenceFields)
+  constructor (url, documentName, states, default_state, expireAtFields, sequenceFields, uniqueFields) {
+    super(url, documentName, expireAtFields, null, sequenceFields, uniqueFields)
     this.states = states
     this.default_state = default_state
   }
@@ -270,8 +282,9 @@ class DocumentsWithStates extends Documents {
 }
 
 class DocumentsWithStatesStandard extends DocumentsWithStates {
-  constructor (url, documentName, sequenceFields) {
-    super(url, documentName, DocumentsWithStatesStandard.states(), DocumentsWithStatesStandard.states().ACTIVE, sequenceFields)
+  constructor (url, documentName, expireAtFields, sequenceFields, uniqueFields) {
+    super(url, documentName, DocumentsWithStatesStandard.states(), DocumentsWithStatesStandard.states().ACTIVE,
+      expireAtFields, sequenceFields, uniqueFields)
   }
 
   static states () {
@@ -296,12 +309,12 @@ class DocumentsWithStatesStandard extends DocumentsWithStates {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  async true_delete (_id) {
+  async trueDelete (_id) {
     return await super.delete(_id)
   }
 
-  async view_must_exist_fatal (_id) {
-    let o = await super.view_must_exist_fatal(_id)
+  async viewMustExistFatal (_id) {
+    let o = await super.viewMustExistFatal(_id)
     if (o.state === DocumentsWithStatesStandard.states().DELETED) throw new Error('FATAL_IS_NOT_FOUND_BECAUSE_DELETED')
     return o
   }
@@ -324,7 +337,7 @@ class DocumentsWithStatesStandard extends DocumentsWithStates {
 
 class Users extends DocumentsWithStatesStandard {
   constructor (url, userDocumentName, userPasswordDocumentName, userPasswordDocumentUserIdFieldName) {
-    super(url, userDocumentName)
+    super(url, userDocumentName, null, null, ['login_id'])
     this.userPasswordDocumentUserIdFieldName = userPasswordDocumentUserIdFieldName
     this.passwords = new Documents(url, userPasswordDocumentName)
   }
@@ -345,7 +358,7 @@ class Users extends DocumentsWithStatesStandard {
     return r
   }
 
-  async add_all (documents, hash_algorithm_name = 'sha256') {
+  async addAll (documents, hash_algorithm_name = 'sha256') {
     for (let i = 0; i < documents.length; i++) {
       const hash = crypto.createHash(hash_algorithm_name)
       hash.update(documents[i]['login_password'])
@@ -359,7 +372,7 @@ class Users extends DocumentsWithStatesStandard {
     if ((typeof user_id) === 'object') user_id = user_id.toString()
     let r = {}
     r[this.userPasswordDocumentUserIdFieldName] = user_id
-    const p = await this.passwords.list_raw(r)
+    const p = await this.passwords.listRaw(r)
     if (p.length === 0) throw new Error('FATAL_USER_HAS_NO_PASSWORD_RECORD')
     return p[0]
   }
@@ -509,14 +522,7 @@ const duckyngo = {
     })
   },
   list: async function (url, collectionName, whereKeyValues, orderKeyValues, limit, projection) {
-    return duckyngo.connect(url).then((client) => {
-      const db = client.db(url.db)
-      const collection = db.collection(collectionName)
-      let cursor = collection.find(whereKeyValues, projection)
-      if (orderKeyValues) cursor = cursor.sort(orderKeyValues)
-      if (limit) cursor = cursor.limit(limit)
-      return cursor.toArray()
-    })
+    return this.filter(url, collectionName, whereKeyValues, orderKeyValues, limit, null, projection)
   },
   filter: async function (url, collectionName, whereKeyValues, orderKeyValues, limit, offset, projection) {
     if (!offset) offset = 0
