@@ -46,7 +46,7 @@ class Documents {
 
   async add (document) {
     if (this.uniqueFields) {
-      for (let i = 0; i++; i < this.uniqueFields.length) {
+      for (let i = 0; i < this.uniqueFields.length; i++) {
         let f = this.uniqueFields[i]
         if (document[f] !== undefined) {
           let p = {}
