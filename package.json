@@ -10,7 +10,7 @@
     "duckytils": "git+https://github.com/donnyhardyanto/duckytils.git",
     "lodash": "^4.17.15",
     "moment": "^2.24.0",
-    "mongodb": "^3.3.3"
+    "mongodb": "^3.3.4"
   },
   "author": "Donny Hardyanto",
   "license": "MIT"

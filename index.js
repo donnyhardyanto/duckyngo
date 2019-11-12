@@ -2,7 +2,7 @@
 /* Version 2.0 */
 const mongodb = require('mongodb')
 const moment = require('moment')
-const ObjectId = require('mongodb').ObjectId
+const ObjectId = mongodb.ObjectId
 const duckytils = require('duckytils')
 const lodash_string = require('lodash/string')
 const crypto = require('crypto')
@@ -120,6 +120,7 @@ class Documents {
     return this.findOneAndUpdate(whereKeyValues, orderKeyValues, { $set: setKeyValues }, projection)
   }
 
+  // noinspection JSUnusedGlobalSymbols
   async findOneAndUpsertSet (whereKeyValues, orderKeyValues, setKeyValues, projection) {
     setKeyValues._edit_timestamp = new Date(moment().toISOString())
     setKeyValues._lastchanged_timestamp = setKeyValues._edit_timestamp
@@ -196,6 +197,7 @@ class Documents {
     return this.syncRaw(whereKeyValues, new Date(t.toISOString()), limit, projection)
   }
 
+  // noinspection JSUnusedGlobalSymbols
   async aggregate (pipeline, options, orderKeyValues, limit, offset) {
     return duckyngo.aggregate(this.url, this.documentName, pipeline, options, orderKeyValues, offset, limit)
   }
