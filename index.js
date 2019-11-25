@@ -31,7 +31,7 @@ class Documents {
     if (this.sequenceFields) {
       for (let i = 0; i < this.sequenceFields.length; i++) {
         let p = {}
-        let f = this.sequenceFields[i].field
+        let f = this.sequenceFields[i]['field']
         p[f] = 1
         await duckyngo.createIndex(this.url, this.documentName, p)
       }
@@ -92,7 +92,9 @@ class Documents {
   }
 
   async updateSet (_id, setKeyValues, projection) {
-    if ((typeof _id) !== 'object') _id = ObjectId(_id)
+    if ((typeof _id) !== 'object') { // noinspection JSValidateTypes
+      _id = ObjectId(_id)
+    }
     setKeyValues._edit_timestamp = new Date(moment().toISOString())
     setKeyValues._lastchanged_timestamp = setKeyValues._edit_timestamp
     return this.findOneAndUpdate({ _id: _id }, null, { $set: setKeyValues }, projection)
@@ -100,7 +102,9 @@ class Documents {
 
   // noinspection JSUnusedGlobalSymbols
   async update (_id, updateKeyValues, projection) {
-    if ((typeof _id) !== 'object') _id = ObjectId(_id)
+    if ((typeof _id) !== 'object') { // noinspection JSValidateTypes
+      _id = ObjectId(_id)
+    }
     let t = new Date(moment().toISOString())
     updateKeyValues = Object.assign({
       $set: {
@@ -112,7 +116,9 @@ class Documents {
   }
 
   async delete (_id, projection) {
-    if ((typeof _id) !== 'object') _id = ObjectId(_id)
+    if ((typeof _id) !== 'object') { // noinspection JSValidateTypes
+      _id = ObjectId(_id)
+    }
     return duckyngo.deleteOne(this.url, this.documentName, { _id: _id }, projection)
   }
 
@@ -136,7 +142,9 @@ class Documents {
   }
 
   async view (_id, projection) {
-    if ((typeof _id) !== 'object') _id = ObjectId(_id)
+    if ((typeof _id) !== 'object') { // noinspection JSValidateTypes
+      _id = ObjectId(_id)
+    }
     return duckyngo.findOne(this.url, this.documentName, { _id: _id }, projection)
   }
 
@@ -200,6 +208,21 @@ class Documents {
   // noinspection JSUnusedGlobalSymbols
   async aggregate (pipeline, options, orderKeyValues, limit, offset) {
     return duckyngo.aggregate(this.url, this.documentName, pipeline, options, orderKeyValues, offset, limit)
+  }
+}
+
+class Sequences extends Documents {
+  async new (sequenceNameId, prefix, minvalue) {
+    return this.findOneAndUpsert(
+      { sequence_nameid: sequenceNameId },
+      { sequence_nameid: 1 },
+      {
+        $inc: { value: 1 },
+        $setOnInsert: {
+          value: minvalue,
+          prefix: prefix
+        }
+      })
   }
 }
 
@@ -297,6 +320,7 @@ class DocumentsWithStatesStandard extends DocumentsWithStates {
     }
   }
 
+  // noinspection JSUnusedGlobalSymbols
   static () {
     return DocumentsWithStatesStandard.states()
   }
@@ -401,6 +425,7 @@ const duckyngo = {
   DocumentsWithStatesStandard,
   Users,
   AsyncJob,
+  Sequences,
   connections: [],
   connect: async function (url) {
     let c = duckyngo.connections[url.hash]
