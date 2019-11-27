@@ -13,6 +13,7 @@ class Documents {
     this.documentName = documentName
     this.expireAtFields = expireAtFields
     this.error_object_name = error_object_name
+    // noinspection JSUnusedGlobalSymbols
     this.onChanged = null
     this.sequenceFields = sequenceFields
     this.uniqueFields = uniqueFields
@@ -73,6 +74,7 @@ class Documents {
     return duckyngo.insertOne(this.url, this.documentName, d)
   }
 
+  // noinspection JSUnusedGlobalSymbols
   async addAll (documents) {
     for (let i = 0; i < documents.length; i++) {
       await this.add(documents[i])
@@ -122,6 +124,7 @@ class Documents {
     return duckyngo.deleteOne(this.url, this.documentName, { _id: _id }, projection)
   }
 
+  // noinspection JSUnusedGlobalSymbols
   async findOneAndUpdateSet (whereKeyValues, orderKeyValues, setKeyValues, projection) {
     return this.findOneAndUpdate(whereKeyValues, orderKeyValues, { $set: setKeyValues }, projection)
   }
@@ -212,6 +215,7 @@ class Documents {
 }
 
 class Sequences extends Documents {
+  // noinspection JSUnusedGlobalSymbols
   async new (sequenceNameId, prefix, minvalue) {
     return this.findOneAndUpsert(
       { sequence_nameid: sequenceNameId },
@@ -280,6 +284,7 @@ class AsyncJob extends Documents {
     duckytils.log(data_tag, 'info', 'Async job ERROR: <' + d._id + '>:' + d.name + ': ' + error.message, error)
   }
 
+  // noinspection JSUnusedGlobalSymbols
   async jobRegisterAsPromise (data_tag, p, name, parameters) {
     let self = this
     let job_id = await this.jobRegister(data_tag, name, parameters, 'START')
@@ -296,6 +301,7 @@ class AsyncJob extends Documents {
 class DocumentsWithStates extends Documents {
   constructor (url, documentName, states, default_state, expireAtFields, sequenceFields, uniqueFields) {
     super(url, documentName, expireAtFields, null, sequenceFields, uniqueFields)
+    // noinspection JSUnusedGlobalSymbols
     this.states = states
     this.default_state = default_state
   }
